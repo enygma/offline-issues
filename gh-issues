@@ -1,0 +1,99 @@
+#!/usr/bin/php
+<?php
+
+class getIssues {
+	
+	private $_url	= 'http://github.com/api/v2/json/issues/list/:user/:repo/:status';
+	private $_settings	= array(
+		':status'	=> 'open',
+		':user'		=> 'enygma',
+		':repo'		=> 'joind.in'
+	);
+	private $_file	= '';
+	private $_ttl	= 172800;
+	private $_args	= array();
+
+	public function __construct(){
+		$this->_file='/tmp/'.date('Ymd').'_:repo_issues';
+	}
+	//--------------
+	public function run(){
+		$file=str_replace(array_keys($this->_settings),$this->_settings,$this->_file);
+		if(count($_SERVER['argv'])>1){
+			$this->_args=$_SERVER['argv'];
+		}
+		
+		$issues_list=$this->_fetch($file);
+		$this->_display($issues_list->issues); 
+		
+		//print_r($issues_list->issues);
+	}
+	private function _fetch($file){
+		//check the TTL on the file
+		if(filectime($file)<=time()-$this->_ttl){
+
+			$request	= str_replace(array_keys($this->_settings),$this->_settings,$this->_url);
+			$response	= file_get_contents($request);
+		
+			$fp=fopen($file,'w+');
+			if($fp){
+				fwrite($fp,$response);
+				fclose($fp);
+			}else{ throw new Exception('Cannot open cache file!'); }
+		}
+		return json_decode(file_get_contents($file));
+	}
+	private function _display($issues){
+		$out	= '';
+		$action	= (isset($this->_args[1])) ? strtolower($this->_args[1]) : 'list';
+		
+		$func='_display'.ucwords($action);
+		if(method_exists($this,$func)){
+			$out=$this->$func($issues);
+		}else{ throw new Exception('Incorrect action!'); }
+		echo $out."\n";
+	}
+	//---------------------
+	private function _displayList($issues){
+		$out='';
+		foreach($issues as $k => $issue){
+			$out.='['.$issue->number.'] '.$issue->title."\n";
+		}
+		$out.="\n".'Use get_issues detail [number] to get more info...';
+		return $out;
+	}
+	/**
+	 * Find the issue and display its details
+	 */
+	private function _displayDetail($issues){
+		$out='';
+		if(isset($this->_args[2])){
+			$detail_id=$this->_args[2];
+		}else{ throw new Exception('Invalid Detail ID!'); }
+		
+		foreach($issues as $k=>$issue){
+			if($issue->number==$detail_id){
+				$out.='Issue #'.$detail_id.": ";
+				$out.=$issue->title."\n+++++++++\n".$issue->body;
+				$out.="\n\n";
+				$out.="created  : ".$issue->created_at."\n";
+				$out.="labels   : ".implode(', ',$issue->labels);
+			}
+		}
+		if(empty($out)){
+			throw new Exception('Detail ID Not Found!');
+		}
+		return $out;
+	}
+}
+
+$issues=new getIssues();
+try {
+	$issues->run();
+}catch(Exception $e){
+	echo "########################################\n";
+	echo '# ERROR: '.$e->getMessage()."\n";
+	echo "########################################\n";
+}
+
+?>

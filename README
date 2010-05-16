@@ -1,0 +1,27 @@
+
+Here's how to use this easy little script:
+-------------
+1. Change the properties at the top of the file to the repo/user 
+	you want to fetch
+2. Change the location for the PHP binary to match your system
+3. Be sure the $_file path can be written to (or change it)
+
+What it does:
+------------
+The script connects to the Github API and pulls down the entire
+issues list in a json format. It then caches this whole result 
+where the file path points to and all following commands use this
+cached copy for their queries.
+
+The time to live for the file refresh is two days from the creation
+of the cache file.
+
+Actions:
+-----------
+1. list (default): gives complete listing of all issues in the cached copy
+2. detail: gives detail listing of issue when given the issue number
+
+Future Ideas:
+----------
+1. Allow comment updates, pushed when script next connects to github
+2. Create new comments/issues
