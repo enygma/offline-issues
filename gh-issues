@@ -30,7 +30,7 @@ class getIssues {
 	}
 	private function _fetch($file){
 		//check the TTL on the file
-		if(filectime($file)<=time()-$this->_ttl){
+		if( (file_exists($file) && filectime($file)<=time()-$this->_ttl) || !file_exists($file) ){
 
 			$request	= str_replace(array_keys($this->_settings),$this->_settings,$this->_url);
 			$response	= file_get_contents($request);
