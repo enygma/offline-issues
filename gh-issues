@@ -22,15 +22,15 @@ class getIssues {
 		if(count($_SERVER['argv'])>1){
 			$this->_args=$_SERVER['argv'];
 		}
-		
-		$issues_list=$this->_fetch($file);
+		$force		= (isset($this->_args[1]) && $this->_args[1]) ? true : false;
+		$issues_list= $this->_fetch($file,$force);
 		$this->_display($issues_list->issues); 
 		
 		//print_r($issues_list->issues);
 	}
-	private function _fetch($file){
+	private function _fetch($file,$force=false){
 		//check the TTL on the file
-		if( (file_exists($file) && filectime($file)<=time()-$this->_ttl) || !file_exists($file) ){
+		if( (file_exists($file) && filectime($file)<=time()-$this->_ttl) || !file_exists($file) || $force){
 
 			$request	= str_replace(array_keys($this->_settings),$this->_settings,$this->_url);
 			$response	= file_get_contents($request);
@@ -85,6 +85,7 @@ class getIssues {
 		}
 		return $out;
 	}
+	private function _displayForce(){ $out='Update forced!'; return $out; }
 }
 
 $issues=new getIssues();
