@@ -3,7 +3,8 @@
 
 class getIssues {
 	
-	private $_url	= 'http://github.com/api/v2/json/issues/list/:user/:repo/:status';
+	private $_url	= '/api/v2/json/issues/list/:user/:repo/:status';
+	private $_host	= 'github.com';
 	private $_settings	= array(
 		':status'	=> 'open',
 		':user'		=> 'enygma',
@@ -15,8 +16,12 @@ class getIssues {
 
 	public function __construct(){
 		$this->_file='/tmp/'.date('Ymd').'_:repo_issues';
+		$this->_ttl=$this->_ttl*10;
 	}
 	//--------------
+	/**
+	 * Main function
+	 */
 	public function run(){
 		$file=str_replace(array_keys($this->_settings),$this->_settings,$this->_file);
 		if(count($_SERVER['argv'])>1){
@@ -28,21 +33,57 @@ class getIssues {
 		
 		//print_r($issues_list->issues);
 	}
+	
+	/**
+	 * Build and send the request to the github API
+	 */
+	private function _request($path){
+		$ret=false;
+		
+		if($fp=@fsockopen($this->_host,80,$errno,$errstr,10)){
+			$req=sprintf("GET ".$path." HTTP/1.0\r\nHost: ".$this->_host."\r\n\r\n");
+			fwrite($fp,$req);
+			while(!feof($fp)){ $ret.=fread($fp,1024); }
+			fclose($fp);
+			
+			$p=explode("\r\n\r\n",$ret);
+			return $p[1];
+		}else{
+			//we cant get it after all, just use what we have
+			return false;
+		}
+	}
+	
+	/**
+	 * Either fetch the cache file or get the new issues list from remote site
+	 */
 	private function _fetch($file,$force=false){
 		//check the TTL on the file
 		if( (file_exists($file) && filectime($file)<=time()-$this->_ttl) || !file_exists($file) || $force){
 
-			$request	= str_replace(array_keys($this->_settings),$this->_settings,$this->_url);
-			$response	= file_get_contents($request);
-		
-			$fp=fopen($file,'w+');
-			if($fp){
-				fwrite($fp,$response);
-				fclose($fp);
-			}else{ throw new Exception('Cannot open cache file!'); }
+			$path = str_replace(array_keys($this->_settings),$this->_settings,$this->_url);
+
+			if($response=$this->_request($path)){
+				$fp=fopen($file,'w+');
+				if($fp){
+					fwrite($fp,$response);
+					fclose($fp);
+				}else{ throw new Exception('Cannot open cache file!'); }
+			}else{
+				//We tried to make the update request, but couldn't
+				//If the file's already there, leave it - otherwise....
+				if(!is_file($file)){
+					throw new Exception('Cannot fetch issues information!');
+				}
+			}
 		}
 		return json_decode(file_get_contents($file));
 	}
+	
+	/**
+	 * Push the issues information out to the right display method
+	 * @param array $issues Issues list info
+	 */
 	private function _display($issues){
 		$out	= '';
 		$action	= (isset($this->_args[1])) ? strtolower($this->_args[1]) : 'list';
@@ -51,9 +92,17 @@ class getIssues {
 		if(method_exists($this,$func)){
 			$out=$this->$func($issues);
 		}else{ throw new Exception('Incorrect action!'); }
-		echo $out."\n";
+		echo "\n".$out."\n";
 	}
-	//---------------------
+	
+	##########################
+	# Display Methods
+	##########################	
+	
+	/**
+	 * Display issues in a summary list
+	 * @param array #issues Issues list info
+	 */
 	private function _displayList($issues){
 		$out='';
 		foreach($issues as $k => $issue){
@@ -62,8 +111,10 @@ class getIssues {
 		$out.="\n".'Use get_issues detail [number] to get more info...';
 		return $out;
 	}
+	
 	/**
 	 * Find the issue and display its details
+	 * @param array $issues Issues list info
 	 */
 	private function _displayDetail($issues){
 		$out='';
@@ -85,7 +136,20 @@ class getIssues {
 		}
 		return $out;
 	}
+	
+	/**
+	 * Force a refresh of the data from the remote source
+	 */
 	private function _displayForce(){ $out='Update forced!'; return $out; }
+	
+	/**
+	 * Echo out some help information
+	 */
+	private function _displayHelp(){
+		$out='Help Text';
+		return $out;
+	}
+	
 }
 
 $issues=new getIssues();
