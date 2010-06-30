@@ -13,13 +13,21 @@ issues list in a json format. It then caches this whole result
 where the file path points to and all following commands use this
 cached copy for their queries.
 
-The time to live for the file refresh is two days from the creation
-of the cache file.
+The time to live for the file refresh is two days (by default) 
+from the creation of the cache file.
+
+Multi-list support: You can now also pull down issues from multiple repos
+and store them locally like this:
+
+./gh-issues --repo=user/reponame
+
+This will override your defaults and request a different list. This will
+be stored in a different cache file.
 
 Actions:
------------
-1. list (default): gives complete listing of all issues in the cached copy
-2. detail: gives detail listing of issue when given the issue number
+---------
+Calling ./gh-issues by itself will list the issues from your default repo
+
 
 Future Ideas:
 ----------
