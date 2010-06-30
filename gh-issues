@@ -1,5 +1,6 @@
-#!/usr/bin/php
+#!/usr/local/bin/php
 <?php
+date_default_timezone_set('UTC');
 
 class getIssues {
 	
@@ -14,11 +15,14 @@ class getIssues {
 	private $_ttl	= 172800;
 	private $_args	= array();
 
+	/** 
+	 * construct 
+	 */
 	public function __construct(){
 		$this->_file='/tmp/'.date('Ymd').'_:repo_issues';
 		$this->_ttl=$this->_ttl*10;
 	}
-	//--------------
+
 	/**
 	 * Main function
 	 */
@@ -95,13 +99,10 @@ class getIssues {
 		echo "\n".$out."\n";
 	}
 	
-	##########################
-	# Display Methods
-	##########################	
-	
 	/**
 	 * Display issues in a summary list
 	 * @param array #issues Issues list info
+	 * @help Tetsing this
 	 */
 	private function _displayList($issues){
 		$out='';
@@ -146,7 +147,24 @@ class getIssues {
 	 * Echo out some help information
 	 */
 	private function _displayHelp(){
-		$out='Help Text';
+		$out	 = 'Help Text';
+		$defines = array();
+		$expr	 = '/((?:\/\*(?:[^*]|(?:\*+[^*\/]))*\*+\/))/';
+		preg_match_all($expr, file_get_contents(__FILE__), $matches);
+
+
+		$cl=new ReflectionClass('getIssues');
+		$methods=$cl->getMethods();
+
+		foreach($methods as $k=>$method){
+			if(strpos($matches[1][$k],'@help')){
+				$defines[$method->name]=$matches[1][$k];
+			}
+		}
+		
+		// If there's a @help in its comments, it's in here
+		//print_r($defines);
+
 		return $out;
 	}
 	
