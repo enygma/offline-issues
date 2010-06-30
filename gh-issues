@@ -2,6 +2,17 @@
 <?php
 date_default_timezone_set('UTC');
 
+/**
+*
+* SETUP:
+* - Change the settings information below (otherwise you'll just get my list)
+* - Be sure your PHP has access to write to /tmp
+* - Change the TTL if you'd like a shorter timeout
+*
+* Multi-repo support!
+* ./gh-issues --repo=user/reponame --> used to grab the issues from another repo
+*/
+
 class getIssues {
 	
 	private $_url	= '/api/v2/json/issues/list/:user/:repo/:status';
@@ -24,18 +35,53 @@ class getIssues {
 	}
 
 	/**
+	 * Built the cache filename
+	 */
+	private function _getCacheFile(){
+		return str_replace(array_keys($this->_settings),$this->_settings,$this->_file);
+	}
+
+	/**
+	 * Either grab the defaults from $_settings or use ones defined from the cmd line
+	 */
+	private function _getConnectInfo(){
+		if(isset($this->_args['repo'])){
+			$detail=explode('/',$this->_args['repo']);
+                        $this->_settings[':user']=$detail[0];
+                        $this->_settings[':repo']=$detail[1];
+		}
+		return $this->_settings;
+	}
+
+	/**
+	 * Parse the arguments we've been given
+	 */
+	private function _parseArgs(){
+		if(count($_SERVER['argv'])>1){
+			// Compress them down into one string
+			foreach($_SERVER['argv'] as $arg){
+				preg_match('/--(.+)/',$arg,$match);
+				if(empty($match)){ continue; }
+				$p=explode('=',$match[1]);
+				$this->_args[$p[0]]=(isset($p[1])) ? $p[1] : true;
+			}
+                }
+
+		//If there's not a value, assume it's display of the default
+		if(!isset($this->_args['display'])){ $this->_args['display']='list'; }
+	}
+
+	/**
 	 * Main function
 	 */
 	public function run(){
-		$file=str_replace(array_keys($this->_settings),$this->_settings,$this->_file);
-		if(count($_SERVER['argv'])>1){
-			$this->_args=$_SERVER['argv'];
-		}
-		$force		= (isset($this->_args[1]) && $this->_args[1]) ? true : false;
+		$this->_parseArgs();
+		$this->_getConnectInfo();
+		$file=$this->_getCacheFile();
+
+		$force = (isset($this->_args['force'])) ? true : false;
 		$issues_list= $this->_fetch($file,$force);
 		$this->_display($issues_list->issues); 
-		
-		//print_r($issues_list->issues);
 	}
 	
 	/**
@@ -65,7 +111,8 @@ class getIssues {
 		//check the TTL on the file
 		if( (file_exists($file) && filectime($file)<=time()-$this->_ttl) || !file_exists($file) || $force){
 
-			$path = str_replace(array_keys($this->_settings),$this->_settings,$this->_url);
+			$settings = ($cinfo=$this->_getConnectInfo()) ? $cinfo : $this->_settings;
+			$path = str_replace(array_keys($settings),$settings,$this->_url);
 
 			if($response=$this->_request($path)){
 				$fp=fopen($file,'w+');
@@ -90,7 +137,7 @@ class getIssues {
 	 */
 	private function _display($issues){
 		$out	= '';
-		$action	= (isset($this->_args[1])) ? strtolower($this->_args[1]) : 'list';
+		$action	= (isset($this->_args['display'])) ? strtolower($this->_args['display']) : 'list';
 		
 		$func='_display'.ucwords($action);
 		if(method_exists($this,$func)){
@@ -106,6 +153,9 @@ class getIssues {
 	 */
 	private function _displayList($issues){
 		$out='';
+		if(count($issues)==0){
+			throw new Exception('No issues to display for this repo!');
+		}
 		foreach($issues as $k => $issue){
 			$out.='['.$issue->number.'] '.$issue->title."\n";
 		}
@@ -141,7 +191,11 @@ class getIssues {
 	/**
 	 * Force a refresh of the data from the remote source
 	 */
-	private function _displayForce(){ $out='Update forced!'; return $out; }
+	private function _displayForce(){ 
+		$out='Update forced!'; 
+		$this->_fetch($this->_getCacheFile(),true);
+		return $out; 
+	}
 	
 	/**
 	 * Echo out some help information
