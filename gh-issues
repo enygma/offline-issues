@@ -1,4 +1,4 @@
-#!/usr/local/bin/php
+#!/usr/bin/php
 <?php
 date_default_timezone_set('UTC');
 
@@ -19,7 +19,7 @@ class getIssues {
 	private $_host	= 'github.com';
 	private $_settings	= array(
 		':status'	=> 'open',
-		':user'		=> 'enygma',
+		':user'		=> 'joindin',
 		':repo'		=> 'joind.in'
 	);
 	private $_file	= '';
@@ -79,8 +79,22 @@ class getIssues {
 		$this->_getConnectInfo();
 		$file=$this->_getCacheFile();
 
+		// grab the issues and their comments
 		$force = (isset($this->_args['force'])) ? true : false;
 		$issues_list= $this->_fetch($file,$force);
+
+		//var_dump($issues_list);
+		foreach($issues_list->issues as $issue){
+			$path='/api/v2/json/issues/comments/:user/:repo/'.$issue->number;
+			$path=str_replace(array_keys($this->_settings),$this->_settings,$path);
+
+			$this->_file='/tmp/'.date('Ymd').'_:repo_issue_comments_'.$issue->number;
+			$file=$this->_getCacheFile();
+
+			$comments=$this->_fetch($file,false,$path);
+		}
+
+		// display the results
 		$this->_display($issues_list->issues); 
 	}
 	
@@ -89,6 +103,8 @@ class getIssues {
 	 */
 	private function _request($path){
 		$ret=false;
+
+		echo $path."\n";
 		
 		if($fp=@fsockopen($this->_host,80,$errno,$errstr,10)){
 			$req=sprintf("GET ".$path." HTTP/1.0\r\nHost: ".$this->_host."\r\n\r\n");
@@ -107,13 +123,14 @@ class getIssues {
 	/**
 	 * Either fetch the cache file or get the new issues list from remote site
 	 */
-	private function _fetch($file,$force=false){
+	private function _fetch($file,$force=false,$force_path=null){
 		//check the TTL on the file
 		if( (file_exists($file) && filectime($file)<=time()-$this->_ttl) || !file_exists($file) || $force){
 
 			$settings = ($cinfo=$this->_getConnectInfo()) ? $cinfo : $this->_settings;
 			$path = str_replace(array_keys($settings),$settings,$this->_url);
 
+			if($force_path){ $path=$force_path; }
 			if($response=$this->_request($path)){
 				$fp=fopen($file,'w+');
 				if($fp){
@@ -159,7 +176,7 @@ class getIssues {
 		foreach($issues as $k => $issue){
 			$out.='['.$issue->number.'] '.$issue->title."\n";
 		}
-		$out.="\n".'Use get_issues detail [number] to get more info...';
+		$out.="\n".'Use gh-issues --display=detail -id=[number] to get more info...';
 		return $out;
 	}
 	
@@ -169,8 +186,8 @@ class getIssues {
 	 */
 	private function _displayDetail($issues){
 		$out='';
-		if(isset($this->_args[2])){
-			$detail_id=$this->_args[2];
+		if(isset($this->_args['id'])){
+			$detail_id=$this->_args['id'];
 		}else{ throw new Exception('Invalid Detail ID!'); }
 		
 		foreach($issues as $k=>$issue){
@@ -180,6 +197,8 @@ class getIssues {
 				$out.="\n\n";
 				$out.="created  : ".$issue->created_at."\n";
 				$out.="labels   : ".implode(', ',$issue->labels);
+
+				$out.="\n\n".$this->_displayComments($issue->number);
 			}
 		}
 		if(empty($out)){
@@ -220,6 +239,20 @@ class getIssues {
 		//print_r($defines);
 
 		return $out;
+	}
+
+	private function _displayComments($issue_id){
+		$file='/tmp/'.date('Ymd').'_'.$this->_settings[':repo'].'_issue_comments_'.$issue_id;
+		$contents="=== COMMENTS ==========\n";
+		if(is_file($file)){
+			$file_contents=json_decode(file_get_contents($file));
+			foreach($file_contents->comments as $value){
+				$contents.=$value->created_at.' by '.$value->user."\n";
+				$contents.=$value->body."\n";
+				$contents.="--------------------\n";
+			}
+		}
+		return $contents;
 	}
 	
 }
