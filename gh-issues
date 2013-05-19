@@ -15,15 +15,15 @@ date_default_timezone_set('UTC');
 
 class getIssues {
 	
-	private $_url	= '/api/v2/json/issues/list/:user/:repo/:status';
-	private $_host	= 'github.com';
+	private $_url	= '/repos/:user/:repo/issues';
+	private $_host	= 'api.github.com';
 	private $_settings	= array(
 		':status'	=> 'open',
 		':user'		=> 'joindin',
 		':repo'		=> 'joind.in'
 	);
 	private $_file	= '';
-	private $_ttl	= 172800;
+	private $_ttl	= 172800; // 172800 seconds = 48 hours
 	private $_args	= array();
 
 	/** 
@@ -84,8 +84,8 @@ class getIssues {
 		$issues_list= $this->_fetch($file,$force);
 
 		//var_dump($issues_list);
-		foreach($issues_list->issues as $issue){
-			$path='/api/v2/json/issues/comments/:user/:repo/'.$issue->number;
+		foreach($issues_list as $issue){
+			$path='/repos/:user/:repo/issues/'.$issue->number.'/comments';
 			$path=str_replace(array_keys($this->_settings),$this->_settings,$path);
 
 			$this->_file='/tmp/'.date('Ymd').'_:repo_issue_comments_'.$issue->number;
@@ -95,7 +95,7 @@ class getIssues {
 		}
 
 		// display the results
-		$this->_display($issues_list->issues); 
+		$this->_display($issues_list);
 	}
 	
 	/**
@@ -106,8 +106,10 @@ class getIssues {
 
 		echo $path."\n";
 		
-		if($fp=@fsockopen($this->_host,80,$errno,$errstr,10)){
-			$req=sprintf("GET ".$path." HTTP/1.0\r\nHost: ".$this->_host."\r\n\r\n");
+		if($fp=@fsockopen("ssl://" . $this->_host,443,$errno,$errstr,10)){
+			$req=sprintf("GET ".$path." HTTP/1.1\r\nHost: ".$this->_host.
+				         "\r\nConnection: Close\r\n".
+				         "User-Agent: github.com/enygma/offline-issues\r\n\r\n");
 			fwrite($fp,$req);
 			while(!feof($fp)){ $ret.=fread($fp,1024); }
 			fclose($fp);
@@ -196,7 +198,16 @@ class getIssues {
 				$out.=$issue->title."\n+++++++++\n".$issue->body;
 				$out.="\n\n";
 				$out.="created  : ".$issue->created_at."\n";
-				$out.="labels   : ".implode(', ',$issue->labels);
+				$out.="labels   : ";
+				$first=true;
+				foreach($issue->labels as $label){
+				  if ($first) {
+					$first=false;
+				  } else {
+					$out.=', ';
+				  }
+				  $out.=$label->name;
+				}
 
 				$out.="\n\n".$this->_displayComments($issue->number);
 			}
