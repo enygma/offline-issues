@@ -19,8 +19,8 @@ class getIssues {
 	private $_host	= 'api.github.com';
 	private $_settings	= array(
 		':status'	=> 'open',
-		':user'		=> 'joindin',
-		':repo'		=> 'joind.in'
+		':user'		=> 'psecio',
+		':repo'		=> 'iniscan'
 	);
 	private $_file	= '';
 	private $_ttl	= 172800; // 172800 seconds = 48 hours
@@ -257,10 +257,12 @@ class getIssues {
 		$contents="=== COMMENTS ==========\n";
 		if(is_file($file)){
 			$file_contents=json_decode(file_get_contents($file));
-			foreach($file_contents->comments as $value){
-				$contents.=$value->created_at.' by '.$value->user."\n";
-				$contents.=$value->body."\n";
-				$contents.="--------------------\n";
+			if (isset($file_contents->comments)) {
+				foreach($file_contents->comments as $value){
+					$contents.=$value->created_at.' by '.$value->user."\n";
+					$contents.=$value->body."\n";
+					$contents.="--------------------\n";
+				}
 			}
 		}
 		return $contents;
