@@ -30,6 +30,11 @@ Actions
 
 Calling `./gh-issues` by itself will list the issues from your default repo.
 
+`./gh-issues --display=detail --id=53` -- show details of issue 53 and all comments.
+
+`./gh-issues --display=comments --id=53` -- show only comments of issue 53.
+
+
 Future Ideas
 ------------
 
