@@ -253,16 +253,22 @@ class getIssues {
 	}
 
 	private function _displayComments($issue_id){
+		// set $issue_id
+		if( isset($this->_args['id']) ) {
+			$issue_id = $this->_args['id'];
+		} elseif (empty($issue_id)) {
+			throw new Exception('Invalid Issue ID!');
+		}
+
 		$file='/tmp/'.date('Ymd').'_'.$this->_settings[':repo'].'_issue_comments_'.$issue_id;
 		$contents="=== COMMENTS ==========\n";
 		if(is_file($file)){
 			$file_contents=json_decode(file_get_contents($file));
-			if (isset($file_contents->comments)) {
-				foreach($file_contents->comments as $value){
-					$contents.=$value->created_at.' by '.$value->user."\n";
-					$contents.=$value->body."\n";
-					$contents.="--------------------\n";
-				}
+
+			foreach ($file_contents as $comment) {
+				$contents.=$comment->created_at.' by '.$comment->user->login."\n";
+				$contents.=$comment->body."\n";
+				$contents.="--------------------\n";
 			}
 		}
 		return $contents;
